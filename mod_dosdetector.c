@@ -35,7 +35,6 @@
 #include "http_core.h"
 #include "http_main.h"
 #include "http_log.h"
-#include "ap_mpm.h"
 #include "ap_config.h"
 #include "apr_strings.h"
 #include "apr_shm.h"
@@ -121,13 +120,8 @@ static void log_and_cleanup(char *msg, apr_status_t status, server_rec *s)
 
 static void create_shm(server_rec *s,apr_pool_t *p)
 {    
-    int threaded_mpm;
-    ap_mpm_query(AP_MPMQ_IS_THREADED, &threaded_mpm);
-    //if (threaded_mpm) {
     tmpnam(lock_name);
     apr_global_mutex_create(&lock, lock_name, APR_THREAD_MUTEX_DEFAULT, p);
-    //DEBUGLOG("threaded!");
-    // }
 
     size_t size;
     size =  sizeof(client_list_t) + table_size * sizeof(client_t);
