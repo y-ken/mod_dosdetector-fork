@@ -52,8 +52,6 @@
 #define MODULE_NAME "mod_dosdetector"
 #define MODULE_VERSION "0.2"
 
-#define USER_DATA_KEY "DoSDetecterUserDataKey"
-
 #define DEFAULT_THRESHOLD 10000
 #define DEFAULT_PERIOD 10
 #define DEFAULT_BAN_PERIOD 300
@@ -421,13 +419,6 @@ static int initialize_module(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp,
     //DEBUGLOG("initialize_module is called");
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, s,
                  MODULE_NAME " " MODULE_VERSION " started.");
-
-    void *user_data;
-    apr_pool_userdata_get(&user_data, USER_DATA_KEY, s->process->pool);
-    if (user_data == NULL) {
-        apr_pool_userdata_set((const void *)(1), USER_DATA_KEY, apr_pool_cleanup_null, s->process->pool);
-        return OK;
-    }
 
     create_shm(s, p);
     apr_pool_cleanup_register(p, NULL, cleanup_shm, apr_pool_cleanup_null);
