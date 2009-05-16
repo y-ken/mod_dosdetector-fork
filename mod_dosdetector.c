@@ -26,7 +26,6 @@
  */
 
 #include <arpa/inet.h>
-//#include <netinet/in.h>
 #include <time.h>
 #include <regex.h>
 #include "httpd.h"
@@ -42,15 +41,10 @@
 #include "apr_shm.h"
 #include "apr_thread_mutex.h"
 
-//#define _DEBUG
-
 #ifdef _DEBUG
 #define DEBUGLOG(...) ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_NOTICE, 0, NULL, __VA_ARGS__)
-//#define DEBUGLOG debuglog
 #else
 #define DEBUGLOG(...) //
-//#define DEBUGLOG(...) ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_NOTICE, 0, NULL, __VA_ARGS__)
-//#define DEBUGLOG debuglog
 #endif
 
 #define TRACELOG(...) ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_NOTICE, 0, NULL, __VA_ARGS__)
@@ -150,7 +144,6 @@ static void create_shm(server_rec *s,apr_pool_t *p)
         rc = apr_shm_create(&shm, size, shmname, p);
         if (APR_SUCCESS != rc) {
             ap_log_error(APLOG_MARK, APLOG_ERR, 0,0, "dosdetector: failed to create shared memory %s\n", shmname);
-            //ap_log_error(APLOG_MARK, APLOG_ERR, 0,0, "dosdetector: %s:%d: failed to create shared memory %s\n", __FILE__, __LINE__, shmname);
         } else {
             client_list = apr_shm_baseaddr_get(shm);
             memset(client_list, 0, size);
@@ -232,7 +225,6 @@ static void *dosdetector_create_dir_config(apr_pool_t *p, char *path)
 
 static void count_increment(client_t *client, int threshold)
 {
-    //counter->count = counter->count - counter->interval * period;
     client->count = client->count - client->interval * threshold;
     if(client->count < 0)
         client->count = 0;
@@ -298,7 +290,6 @@ static int dosdetector_handler(request_rec *r)
     time_t now = time((time_t *)0);
     if(client->suspected > 0 && client->suspected + cfg->ban_period > now){
         apr_table_setn(r->subprocess_env, "SuspectDoS", "1");
-        //apr_table_setn(r->notes, "SuspectDoS", "1");
         DEBUGLOG("dosdetector: '%s' has been still suspected as DoS attack! (suspected %d sec ago)", address, now - client->suspected);
 
         if(client->count > cfg->ban_threshold){
@@ -306,7 +297,6 @@ static int dosdetector_handler(request_rec *r)
                 TRACELOG("dosdetector: '%s' is suspected as Hard DoS attack! (counter: %d)", address, client->count);
             client->hard_suspected = now;
             apr_table_setn(r->subprocess_env, "SuspectHardDoS", "1");
-            //apr_table_setn(r->notes, "SuspectHardDoS", "1");
         }
     } else {
         if(client->suspected > 0){
@@ -314,17 +304,10 @@ static int dosdetector_handler(request_rec *r)
             client->hard_suspected = 0;
             client->count = 0;
         }
-        //int last_count = client->count;
-        //client->count = client->count - client->interval * cfg->threshold;
-        //if(client->count < 0)
-        //    client->count = 0;
-        //client->count ++;
-        //DEBUGLOG("client address: %s, count: %d -> %d, interval: %d", address, last_count, client->count, client->interval);
 
         if(client->count > cfg->threshold){
             client->suspected = now;
             apr_table_setn(r->subprocess_env, "SuspectDoS", "1");
-            //apr_table_setn(r->notes, "SuspectDoS", "1");
             TRACELOG("dosdetector: '%s' is suspected as DoS attack! (counter: %d)", address, client->count);
         }
     }
@@ -337,7 +320,6 @@ static const char *set_detection_config(cmd_parms *parms, void *mconfig, const c
     dosdetector_dir_config *cfg = (dosdetector_dir_config *) mconfig;
 
     cfg->detection = ap_strcasecmp_match("on", arg);
-    //ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, 0, "detection: %d", cfg->detection);
     return NULL;
 }
 
