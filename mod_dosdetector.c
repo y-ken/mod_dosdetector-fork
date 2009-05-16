@@ -268,6 +268,11 @@ static int dosdetector_handler(request_rec *r)
     if(cfg->detection) return DECLINED;
     if(!ap_is_initial_req(r)) return DECLINED;
 
+    if(apr_table_get(r->subprocess_env, "NoCheckDoS")) {
+        DEBUGLOG("'NoCheckDoS' is set, skipping DoS check for %s", r->uri);
+        return OK;
+    }
+
     if(cfg->contenttype_regexp->nelts > 0 && is_contenttype_ignored(cfg, r)) {
         return OK;
     }
