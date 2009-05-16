@@ -241,41 +241,46 @@ static void count_increment(client_t *client, int threshold)
     return;
 }
 
+static int is_contenttype_ignored(dosdetector_dir_config *cfg, request_rec *r)
+{
+    const char *content_type;
+    content_type = ap_sub_req_lookup_uri(r->uri, r, NULL)->content_type;
+    if (!content_type) content_type = ap_default_type(r);
+    
+    ap_regmatch_t regmatch[AP_MAX_REG_MATCH];
+    ap_regex_t **contenttype_regexp = (ap_regex_t **) cfg->contenttype_regexp->elts;
+    
+    int i, result = 1;
+    for (i = 0; i < cfg->contenttype_regexp->nelts; i++) {
+        if(!ap_regexec(contenttype_regexp[i], content_type, AP_MAX_REG_MATCH, regmatch, 0)) {
+            result = 0;
+            break;
+        }
+    }
+    DEBUGLOG("dosdetector: content-type=%s, result=%s", content_type, (result ? "processed":"ignored"));
+    return result;
+}
+
 static int dosdetector_handler(request_rec *r)
 {
-    //DEBUGLOG("dosdetector_handler is called");
-
     dosdetector_dir_config *cfg = (dosdetector_dir_config *) ap_get_module_config(r->per_dir_config, &dosdetector_module);
     
     if(cfg->detection) return DECLINED;
-    if (!ap_is_initial_req(r)) return DECLINED;
+    if(!ap_is_initial_req(r)) return DECLINED;
 
-    //char **ignore_contenttype = (char **) cfg->ignore_contenttype->elts;
-    
-    const char *content_type;
-    const char *address;
-    int i;
-
-    content_type = ap_sub_req_lookup_uri(r->uri, r, NULL)->content_type;
-    if (!content_type) content_type = ap_default_type(r);
-
-    address = r->connection->remote_ip;
-
-    ap_regmatch_t regmatch[AP_MAX_REG_MATCH];
-    ap_regex_t **contenttype_regexp = (ap_regex_t **) cfg->contenttype_regexp->elts;
-    for (i = 0; i < cfg->contenttype_regexp->nelts; i++) {
-        if(!ap_regexec(contenttype_regexp[i], content_type, AP_MAX_REG_MATCH, regmatch, 0)){
-            //ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, 0, "ignoring content-type: %s", content_type);
-            return OK;
-        }
+    if(cfg->contenttype_regexp->nelts > 0 && is_contenttype_ignored(cfg, r)) {
+        return OK;
     }
-    DEBUGLOG("dosdetector: processing content-type: %s", content_type);
+
+    const char *address;
+    address = r->connection->remote_ip;
 
     struct in_addr addr;
     addr = r->connection->remote_addr->sa.sin.sin_addr;
     if(addr.s_addr == 0){
         inet_aton(address, &addr);
     }
+
     if (lock) apr_global_mutex_lock(lock);
     client_t *client = get_client(client_list, addr, cfg->period);
     if (lock) apr_global_mutex_unlock(lock);
