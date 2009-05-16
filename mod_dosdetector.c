@@ -68,23 +68,23 @@
 module AP_MODULE_DECLARE_DATA dosdetector_module;
 
 struct s_client {
-	struct in_addr addr;
-	int count;
-	time_t interval;
-	time_t last;
-	struct s_client* next;
-	time_t suspected;
-	time_t hard_suspected;
+    struct in_addr addr;
+    int count;
+    time_t interval;
+    time_t last;
+    struct s_client* next;
+    time_t suspected;
+    time_t hard_suspected;
 };
 typedef struct s_client client_t;
 
 typedef struct {
-	client_t *head;
-	client_t base[1];
+    client_t *head;
+    client_t base[1];
 } client_list_t;
 
 typedef struct {
-	signed int detection;
+    signed int detection;
     signed int threshold;
     signed int ban_threshold;
     signed int period;
@@ -128,99 +128,99 @@ static void log_and_cleanup(char *msg, apr_status_t status, server_rec *s)
 }
 
 static void create_shm(server_rec *s,apr_pool_t *p)
-{	
+{    
     int threaded_mpm;
     ap_mpm_query(AP_MPMQ_IS_THREADED, &threaded_mpm);
     //if (threaded_mpm) {
-	tmpnam(lock_name);
-	apr_global_mutex_create(&lock, lock_name, APR_THREAD_MUTEX_DEFAULT, p);
-	//DEBUGLOG("threaded!");
+    tmpnam(lock_name);
+    apr_global_mutex_create(&lock, lock_name, APR_THREAD_MUTEX_DEFAULT, p);
+    //DEBUGLOG("threaded!");
     // }
 
-	size_t size;
-	size =  sizeof(client_list_t) + table_size * sizeof(client_t);
+    size_t size;
+    size =  sizeof(client_list_t) + table_size * sizeof(client_t);
 
     ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL, 
-				 "Create or Joining shmem. name: %s, size: %d", shmname, size);
+                 "Create or Joining shmem. name: %s, size: %d", shmname, size);
     if(lock) apr_global_mutex_lock(lock);
     apr_status_t rc = apr_shm_attach(&shm, shmname, p);
     if (APR_SUCCESS != rc) {
-		DEBUGLOG("dosdetector: Creating shared memory");
-		apr_shm_remove(shmname, p);
-		rc = apr_shm_create(&shm, size, shmname, p);
-		if (APR_SUCCESS != rc) {
-			ap_log_error(APLOG_MARK, APLOG_ERR, 0,0, "dosdetector: failed to create shared memory %s\n", shmname);
-			//ap_log_error(APLOG_MARK, APLOG_ERR, 0,0, "dosdetector: %s:%d: failed to create shared memory %s\n", __FILE__, __LINE__, shmname);
-		} else {
-			client_list = apr_shm_baseaddr_get(shm);
-			memset(client_list, 0, size);
-		}
+        DEBUGLOG("dosdetector: Creating shared memory");
+        apr_shm_remove(shmname, p);
+        rc = apr_shm_create(&shm, size, shmname, p);
+        if (APR_SUCCESS != rc) {
+            ap_log_error(APLOG_MARK, APLOG_ERR, 0,0, "dosdetector: failed to create shared memory %s\n", shmname);
+            //ap_log_error(APLOG_MARK, APLOG_ERR, 0,0, "dosdetector: %s:%d: failed to create shared memory %s\n", __FILE__, __LINE__, shmname);
+        } else {
+            client_list = apr_shm_baseaddr_get(shm);
+            memset(client_list, 0, size);
+        }
     } else {
-		DEBUGLOG("dosdetector: Joining shared memory");
-		client_list = apr_shm_baseaddr_get(shm);
+        DEBUGLOG("dosdetector: Joining shared memory");
+        client_list = apr_shm_baseaddr_get(shm);
     }
 
-	apr_shm_remove(shmname, p); // Just to set destroy flag.
+    apr_shm_remove(shmname, p); // Just to set destroy flag.
 
-	client_list->head = client_list->base;
-	client_t *c = client_list->base;
-	int i;
+    client_list->head = client_list->base;
+    client_t *c = client_list->base;
+    int i;
 
-	for (i = 1; i < table_size; i++) {
-		c->next = (c + 1);
-		c++;
-	}
-	c->next = NULL;
-	if (lock) apr_global_mutex_unlock(lock);
+    for (i = 1; i < table_size; i++) {
+        c->next = (c + 1);
+        c++;
+    }
+    c->next = NULL;
+    if (lock) apr_global_mutex_unlock(lock);
 
 }
 
 static client_t *get_client(client_list_t *client_list, struct in_addr clientip, int period)
 {
-	//ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, 0, "get_client: looking %d", clientip.s_addr);
-	client_t *index, **prev = &client_list->head;
-	
-	for(index = client_list->head; index->next != (client_t *) 0; index = index->next){
-		if(index->addr.s_addr == 0 || index->addr.s_addr == clientip.s_addr)
-			break;
-		prev = &index->next;
-	}
+    //ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, 0, "get_client: looking %d", clientip.s_addr);
+    client_t *index, **prev = &client_list->head;
+    
+    for(index = client_list->head; index->next != (client_t *) 0; index = index->next){
+        if(index->addr.s_addr == 0 || index->addr.s_addr == clientip.s_addr)
+            break;
+        prev = &index->next;
+    }
 
-	if(index == (client_t *) 0)
-		return (client_t *)0;
+    if(index == (client_t *) 0)
+        return (client_t *)0;
 
-	*prev = index->next;
-	index->next = client_list->head;
-	client_list->head = index;
+    *prev = index->next;
+    index->next = client_list->head;
+    client_list->head = index;
 
-	time_t now = time((time_t*)0);
-	int rest;
-	if(now - index->last > period){
-		index->interval = (now - index->last) / period;
-		rest = (now - index->last) % period;
-		index->last = now - rest;
-	} else {
-		index->interval = 0;
-	}
-	if(index->addr.s_addr != clientip.s_addr){
-		index->count = 0;
-		index->interval = 0;
-		index->suspected = 0;
-		index->hard_suspected = 0;
-		index->addr = clientip;
-	}
+    time_t now = time((time_t*)0);
+    int rest;
+    if(now - index->last > period){
+        index->interval = (now - index->last) / period;
+        rest = (now - index->last) % period;
+        index->last = now - rest;
+    } else {
+        index->interval = 0;
+    }
+    if(index->addr.s_addr != clientip.s_addr){
+        index->count = 0;
+        index->interval = 0;
+        index->suspected = 0;
+        index->hard_suspected = 0;
+        index->addr = clientip;
+    }
 
-	return index;
+    return index;
 }
 
 static void *dosdetector_create_dir_config(apr_pool_t *p, char *path)
 {
-	//DEBUGLOG("create dir is called");
+    //DEBUGLOG("create dir is called");
     dosdetector_dir_config *cfg = (dosdetector_dir_config *)
-	    apr_pcalloc(p, sizeof (*cfg));
-	
+        apr_pcalloc(p, sizeof (*cfg));
+    
     /* default configuration: no limit, and both arrays are empty */
-	cfg->detection = 1;
+    cfg->detection = 1;
     cfg->threshold = DEFAULT_THRESHOLD;
     cfg->period    = DEFAULT_PERIOD;
     cfg->ban_period    = DEFAULT_BAN_PERIOD;
@@ -232,26 +232,26 @@ static void *dosdetector_create_dir_config(apr_pool_t *p, char *path)
 
 static void count_increment(client_t *client, int threshold)
 {
-	//counter->count = counter->count - counter->interval * period;
-	client->count = client->count - client->interval * threshold;
-	if(client->count < 0)
-		client->count = 0;
-	client->count ++;
-	
-	return;
+    //counter->count = counter->count - counter->interval * period;
+    client->count = client->count - client->interval * threshold;
+    if(client->count < 0)
+        client->count = 0;
+    client->count ++;
+    
+    return;
 }
 
 static int dosdetector_handler(request_rec *r)
 {
-	//DEBUGLOG("dosdetector_handler is called");
+    //DEBUGLOG("dosdetector_handler is called");
 
     dosdetector_dir_config *cfg = (dosdetector_dir_config *) ap_get_module_config(r->per_dir_config, &dosdetector_module);
-	
-	if(cfg->detection) return DECLINED;
+    
+    if(cfg->detection) return DECLINED;
     if (!ap_is_initial_req(r)) return DECLINED;
 
     //char **ignore_contenttype = (char **) cfg->ignore_contenttype->elts;
-	
+    
     const char *content_type;
     const char *address;
     int i;
@@ -259,67 +259,67 @@ static int dosdetector_handler(request_rec *r)
     content_type = ap_sub_req_lookup_uri(r->uri, r, NULL)->content_type;
     if (!content_type) content_type = ap_default_type(r);
 
-	address = r->connection->remote_ip;
+    address = r->connection->remote_ip;
 
     ap_regmatch_t regmatch[AP_MAX_REG_MATCH];
     ap_regex_t **contenttype_regexp = (ap_regex_t **) cfg->contenttype_regexp->elts;
-	for (i = 0; i < cfg->contenttype_regexp->nelts; i++) {
-		if(!ap_regexec(contenttype_regexp[i], content_type, AP_MAX_REG_MATCH, regmatch, 0)){
-			//ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, 0, "ignoring content-type: %s", content_type);
-			return OK;
-		}
+    for (i = 0; i < cfg->contenttype_regexp->nelts; i++) {
+        if(!ap_regexec(contenttype_regexp[i], content_type, AP_MAX_REG_MATCH, regmatch, 0)){
+            //ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, 0, "ignoring content-type: %s", content_type);
+            return OK;
+        }
     }
-	DEBUGLOG("dosdetector: processing content-type: %s", content_type);
+    DEBUGLOG("dosdetector: processing content-type: %s", content_type);
 
-	struct in_addr addr;
-	addr = r->connection->remote_addr->sa.sin.sin_addr;
-	if(addr.s_addr == 0){
-		inet_aton(address, &addr);
-	}
-	if (lock) apr_global_mutex_lock(lock);
-	client_t *client = get_client(client_list, addr, cfg->period);
-	if (lock) apr_global_mutex_unlock(lock);
+    struct in_addr addr;
+    addr = r->connection->remote_addr->sa.sin.sin_addr;
+    if(addr.s_addr == 0){
+        inet_aton(address, &addr);
+    }
+    if (lock) apr_global_mutex_lock(lock);
+    client_t *client = get_client(client_list, addr, cfg->period);
+    if (lock) apr_global_mutex_unlock(lock);
 
-	int last_count = client->count;
-	count_increment(client, cfg->threshold);
+    int last_count = client->count;
+    count_increment(client, cfg->threshold);
     DEBUGLOG("dosdetector: %s, count: %d -> %d, interval: %d", address, last_count, client->count, (int)client->interval);
     //DEBUGLOG("dosdetector: %s, count: %d -> %d, interval: %d on tid %d, pid %d", address, last_count, client->count, (int)client->interval, gettid(), getpid());
 
-	time_t now = time((time_t *)0);
-	if(client->suspected > 0 && client->suspected + cfg->ban_period > now){
-		apr_table_setn(r->subprocess_env, "SuspectDoS", "1");
-		//apr_table_setn(r->notes, "SuspectDoS", "1");
-		DEBUGLOG("dosdetector: '%s' has been still suspected as DoS attack! (suspected %d sec ago)", address, now - client->suspected);
+    time_t now = time((time_t *)0);
+    if(client->suspected > 0 && client->suspected + cfg->ban_period > now){
+        apr_table_setn(r->subprocess_env, "SuspectDoS", "1");
+        //apr_table_setn(r->notes, "SuspectDoS", "1");
+        DEBUGLOG("dosdetector: '%s' has been still suspected as DoS attack! (suspected %d sec ago)", address, now - client->suspected);
 
-		if(client->count > cfg->ban_threshold){
-			if(client->hard_suspected == 0)
-				TRACELOG("dosdetector: '%s' is suspected as Hard DoS attack! (counter: %d)", address, client->count);
-			client->hard_suspected = now;
-			apr_table_setn(r->subprocess_env, "SuspectHardDoS", "1");
-			//apr_table_setn(r->notes, "SuspectHardDoS", "1");
-		}
-	} else {
+        if(client->count > cfg->ban_threshold){
+            if(client->hard_suspected == 0)
+                TRACELOG("dosdetector: '%s' is suspected as Hard DoS attack! (counter: %d)", address, client->count);
+            client->hard_suspected = now;
+            apr_table_setn(r->subprocess_env, "SuspectHardDoS", "1");
+            //apr_table_setn(r->notes, "SuspectHardDoS", "1");
+        }
+    } else {
         if(client->suspected > 0){
-			client->suspected = 0;
-			client->hard_suspected = 0;
-			client->count = 0;
-		}
-		//int last_count = client->count;
-		//client->count = client->count - client->interval * cfg->threshold;
-		//if(client->count < 0)
-		//	client->count = 0;
-		//client->count ++;
-		//DEBUGLOG("client address: %s, count: %d -> %d, interval: %d", address, last_count, client->count, client->interval);
+            client->suspected = 0;
+            client->hard_suspected = 0;
+            client->count = 0;
+        }
+        //int last_count = client->count;
+        //client->count = client->count - client->interval * cfg->threshold;
+        //if(client->count < 0)
+        //    client->count = 0;
+        //client->count ++;
+        //DEBUGLOG("client address: %s, count: %d -> %d, interval: %d", address, last_count, client->count, client->interval);
 
-		if(client->count > cfg->threshold){
-			client->suspected = now;
-			apr_table_setn(r->subprocess_env, "SuspectDoS", "1");
-			//apr_table_setn(r->notes, "SuspectDoS", "1");
-			TRACELOG("dosdetector: '%s' is suspected as DoS attack! (counter: %d)", address, client->count);
-		}
-	}
+        if(client->count > cfg->threshold){
+            client->suspected = now;
+            apr_table_setn(r->subprocess_env, "SuspectDoS", "1");
+            //apr_table_setn(r->notes, "SuspectDoS", "1");
+            TRACELOG("dosdetector: '%s' is suspected as DoS attack! (counter: %d)", address, client->count);
+        }
+    }
 
-	return DECLINED;
+    return DECLINED;
 }
 
 static const char *set_detection_config(cmd_parms *parms, void *mconfig, const char *arg)
@@ -327,7 +327,7 @@ static const char *set_detection_config(cmd_parms *parms, void *mconfig, const c
     dosdetector_dir_config *cfg = (dosdetector_dir_config *) mconfig;
 
     cfg->detection = ap_strcasecmp_match("on", arg);
-	//ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, 0, "detection: %d", cfg->detection);
+    //ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, 0, "detection: %d", cfg->detection);
     return NULL;
 }
 
@@ -387,18 +387,18 @@ static const char *set_table_size_config(cmd_parms *parms, void *mconfig, const 
 }
 
 static const char *set_ignore_contenttype_config(cmd_parms *parms, void *mconfig,
-					 const char *arg)
+                     const char *arg)
 {
     dosdetector_dir_config *cfg = (dosdetector_dir_config *) mconfig;
     char **ignore_contenttype = (char **) cfg->ignore_contenttype->elts;
 
     *(char **) apr_array_push(cfg->ignore_contenttype) = apr_pstrdup(parms->pool, arg);
 
-	int i;
-	regex_t *regexp;
-	for (i = 0; i < cfg->ignore_contenttype->nelts; i++) {
+    int i;
+    regex_t *regexp;
+    for (i = 0; i < cfg->ignore_contenttype->nelts; i++) {
         regexp = (regex_t *)ap_pregcomp(parms->pool, (char *)ignore_contenttype[i], REG_EXTENDED|REG_ICASE);
-		*(regex_t **)apr_array_push(cfg->contenttype_regexp) = regexp;
+        *(regex_t **)apr_array_push(cfg->contenttype_regexp) = regexp;
     }
 
     return NULL;
@@ -426,11 +426,11 @@ static command_rec dosdetector_cmds[] = {
 
 static int initialize_module(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s)
 {
-	//DEBUGLOG("initialize_module is called");
+    //DEBUGLOG("initialize_module is called");
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, s,
                  MODULE_NAME " " MODULE_VERSION " started.");
 
-	void *user_data;
+    void *user_data;
     apr_pool_userdata_get(&user_data, USER_DATA_KEY, s->process->pool);
     if (user_data == NULL) {
         apr_pool_userdata_set((const void *)(1), USER_DATA_KEY, apr_pool_cleanup_null, s->process->pool);
@@ -445,11 +445,11 @@ static int initialize_module(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp,
 
 static void initialize_child(apr_pool_t *p, server_rec *s)
 {
-	//DEBUGLOG("initialize_child is called");
+    //DEBUGLOG("initialize_child is called");
     apr_status_t status;
 
     if (!shm) {
-		DEBUGLOG("dosdetector: shm is null in initialize_child");
+        DEBUGLOG("dosdetector: shm is null in initialize_child");
         return;
     }
 
@@ -462,7 +462,7 @@ static void initialize_child(apr_pool_t *p, server_rec *s)
 
 static void register_hooks(apr_pool_t *p)
 {
-	tmpnam(shm_name);
+    tmpnam(shm_name);
     shmname    = shm_name;
 
     ap_hook_post_read_request(dosdetector_handler,NULL,NULL,APR_HOOK_MIDDLE);
@@ -473,9 +473,9 @@ static void register_hooks(apr_pool_t *p)
 module AP_MODULE_DECLARE_DATA dosdetector_module = {
     STANDARD20_MODULE_STUFF,
     dosdetector_create_dir_config, /* create per-dir config structures */
-    NULL,			/* merge  per-dir    config structures */
-    NULL,			/* create per-server config structures */
-    NULL,			/* merge  per-server config structures */
-    dosdetector_cmds,		/* table of config file commands       */
+    NULL,            /* merge  per-dir    config structures */
+    NULL,            /* create per-server config structures */
+    NULL,            /* merge  per-server config structures */
+    dosdetector_cmds,        /* table of config file commands       */
     register_hooks
 };
