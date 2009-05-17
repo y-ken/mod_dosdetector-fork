@@ -373,16 +373,10 @@ static const char *set_ignore_contenttype_config(cmd_parms *parms, void *mconfig
                      const char *arg)
 {
     dosdetector_dir_config *cfg = (dosdetector_dir_config *) mconfig;
-    char **ignore_contenttype = (char **) cfg->ignore_contenttype->elts;
 
     *(char **) apr_array_push(cfg->ignore_contenttype) = apr_pstrdup(parms->pool, arg);
-
-    int i;
-    ap_regex_t *regexp;
-    for (i = 0; i < cfg->ignore_contenttype->nelts; i++) {
-        regexp = ap_pregcomp(parms->pool, (char *)ignore_contenttype[i], AP_REG_EXTENDED|AP_REG_ICASE);
-        *(ap_regex_t **)apr_array_push(cfg->contenttype_regexp) = regexp;
-    }
+    *(ap_regex_t **)apr_array_push(cfg->contenttype_regexp)
+        = ap_pregcomp(parms->pool, arg, AP_REG_EXTENDED|AP_REG_ICASE);
 
     return NULL;
 }
