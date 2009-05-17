@@ -379,10 +379,10 @@ static const char *set_ignore_contenttype_config(cmd_parms *parms, void *mconfig
     *(char **) apr_array_push(cfg->ignore_contenttype) = apr_pstrdup(parms->pool, arg);
 
     int i;
-    regex_t *regexp;
+    ap_regex_t *regexp;
     for (i = 0; i < cfg->ignore_contenttype->nelts; i++) {
-        regexp = (regex_t *)ap_pregcomp(parms->pool, (char *)ignore_contenttype[i], REG_EXTENDED|REG_ICASE);
-        *(regex_t **)apr_array_push(cfg->contenttype_regexp) = regexp;
+        regexp = ap_pregcomp(parms->pool, (char *)ignore_contenttype[i], REG_EXTENDED|REG_ICASE);
+        *(ap_regex_t **)apr_array_push(cfg->contenttype_regexp) = regexp;
     }
 
     return NULL;
