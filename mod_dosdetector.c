@@ -27,7 +27,6 @@
 
 #include <arpa/inet.h>
 #include <time.h>
-#include <regex.h>
 #include "httpd.h"
 #include "http_config.h"
 #include "http_request.h"
@@ -381,7 +380,7 @@ static const char *set_ignore_contenttype_config(cmd_parms *parms, void *mconfig
     int i;
     ap_regex_t *regexp;
     for (i = 0; i < cfg->ignore_contenttype->nelts; i++) {
-        regexp = ap_pregcomp(parms->pool, (char *)ignore_contenttype[i], REG_EXTENDED|REG_ICASE);
+        regexp = ap_pregcomp(parms->pool, (char *)ignore_contenttype[i], AP_REG_EXTENDED|AP_REG_ICASE);
         *(ap_regex_t **)apr_array_push(cfg->contenttype_regexp) = regexp;
     }
 
