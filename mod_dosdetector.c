@@ -39,16 +39,16 @@
 #include "apr_shm.h"
 #include "apr_thread_mutex.h"
 
+#define MODULE_NAME "mod_dosdetector"
+#define MODULE_VERSION "0.2"
+
 #ifdef _DEBUG
-#define DEBUGLOG(...) ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_NOTICE, 0, NULL, __VA_ARGS__)
+#define DEBUGLOG(...) ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_NOTICE, 0, NULL, MODULE_NAME ": " __VA_ARGS__)
 #else
 #define DEBUGLOG(...) //
 #endif
 
-#define TRACELOG(...) ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_NOTICE, 0, NULL, __VA_ARGS__)
-
-#define MODULE_NAME "mod_dosdetector"
-#define MODULE_VERSION "0.2"
+#define TRACELOG(...) ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_NOTICE, 0, NULL, MODULE_NAME ": " __VA_ARGS__)
 
 #define DEFAULT_THRESHOLD 10000
 #define DEFAULT_PERIOD 10
@@ -130,17 +130,17 @@ static void create_shm(server_rec *s,apr_pool_t *p)
     if(lock) apr_global_mutex_lock(lock);
     apr_status_t rc = apr_shm_attach(&shm, shmname, p);
     if (APR_SUCCESS != rc) {
-        DEBUGLOG("dosdetector: Creating shared memory");
+        DEBUGLOG("Creating shared memory");
         apr_shm_remove(shmname, p);
         rc = apr_shm_create(&shm, size, shmname, p);
         if (APR_SUCCESS != rc) {
-            ap_log_error(APLOG_MARK, APLOG_ERR, 0,0, "dosdetector: failed to create shared memory %s\n", shmname);
+            ap_log_error(APLOG_MARK, APLOG_ERR, 0,0, "failed to create shared memory %s\n", shmname);
         } else {
             client_list = apr_shm_baseaddr_get(shm);
             memset(client_list, 0, size);
         }
     } else {
-        DEBUGLOG("dosdetector: Joining shared memory");
+        DEBUGLOG("Joining shared memory");
         client_list = apr_shm_baseaddr_get(shm);
     }
 
@@ -240,7 +240,7 @@ static int is_contenttype_ignored(dosdetector_dir_config *cfg, request_rec *r)
             break;
         }
     }
-    DEBUGLOG("dosdetector: content-type=%s, result=%s", content_type, (result ? "processed":"ignored"));
+    DEBUGLOG("content-type=%s, result=%s", content_type, (result ? "processed":"ignored"));
     return result;
 }
 
@@ -275,17 +275,17 @@ static int dosdetector_handler(request_rec *r)
 
     int last_count = client->count;
     count_increment(client, cfg->threshold);
-    DEBUGLOG("dosdetector: %s, count: %d -> %d, interval: %d", address, last_count, client->count, (int)client->interval);
-    //DEBUGLOG("dosdetector: %s, count: %d -> %d, interval: %d on tid %d, pid %d", address, last_count, client->count, (int)client->interval, gettid(), getpid());
+    DEBUGLOG("%s, count: %d -> %d, interval: %d", address, last_count, client->count, (int)client->interval);
+    //DEBUGLOG("%s, count: %d -> %d, interval: %d on tid %d, pid %d", address, last_count, client->count, (int)client->interval, gettid(), getpid());
 
     time_t now = time((time_t *)0);
     if(client->suspected > 0 && client->suspected + cfg->ban_period > now){
         apr_table_setn(r->subprocess_env, "SuspectDoS", "1");
-        DEBUGLOG("dosdetector: '%s' has been still suspected as DoS attack! (suspected %d sec ago)", address, now - client->suspected);
+        DEBUGLOG("'%s' has been still suspected as DoS attack! (suspected %d sec ago)", address, now - client->suspected);
 
         if(client->count > cfg->ban_threshold){
             if(client->hard_suspected == 0)
-                TRACELOG("dosdetector: '%s' is suspected as Hard DoS attack! (counter: %d)", address, client->count);
+                TRACELOG("'%s' is suspected as Hard DoS attack! (counter: %d)", address, client->count);
             client->hard_suspected = now;
             apr_table_setn(r->subprocess_env, "SuspectHardDoS", "1");
         }
@@ -299,7 +299,7 @@ static int dosdetector_handler(request_rec *r)
         if(client->count > cfg->threshold){
             client->suspected = now;
             apr_table_setn(r->subprocess_env, "SuspectDoS", "1");
-            TRACELOG("dosdetector: '%s' is suspected as DoS attack! (counter: %d)", address, client->count);
+            TRACELOG("'%s' is suspected as DoS attack! (counter: %d)", address, client->count);
         }
     }
 
@@ -419,13 +419,13 @@ static void initialize_child(apr_pool_t *p, server_rec *s)
     apr_status_t status;
 
     if (!shm) {
-        DEBUGLOG("dosdetector: shm is null in initialize_child");
+        DEBUGLOG("shm is null in initialize_child");
         return;
     }
 
     status = apr_global_mutex_child_init(&lock, lock_name, p);
     if (status != APR_SUCCESS) {
-        log_and_cleanup("dosdetector: failed to create lock (lock)", status, s);
+        log_and_cleanup("failed to create lock (lock)", status, s);
         return;
     }
 }
