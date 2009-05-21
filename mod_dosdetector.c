@@ -250,15 +250,15 @@ static int is_contenttype_ignored(dosdetector_dir_config *cfg, request_rec *r)
     ap_regmatch_t regmatch[AP_MAX_REG_MATCH];
     ap_regex_t **contenttype_regexp = (ap_regex_t **) cfg->contenttype_regexp->elts;
     
-    int i, result = 1;
+    int i, ignore = 0;
     for (i = 0; i < cfg->contenttype_regexp->nelts; i++) {
         if(!ap_regexec(contenttype_regexp[i], content_type, AP_MAX_REG_MATCH, regmatch, 0)) {
-            result = 0;
+            ignore = 1;
             break;
         }
     }
-    DEBUGLOG("dosdetector: content-type=%s, result=%s", content_type, (result ? "processed":"ignored"));
-    return result;
+    DEBUGLOG("dosdetector: content-type=%s, result=%s", content_type, (ignore ? "ignored":"processed"));
+    return ignore;
 }
 
 static int dosdetector_handler(request_rec *r)
