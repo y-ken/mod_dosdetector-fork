@@ -85,6 +85,14 @@ typedef struct {
     apr_array_header_t *contenttype_regexp;
 } dosdetector_dir_config;
 
+typedef enum {
+    NORMAL,
+    SUSPECTED,
+    SUSPECTED_FIRST,
+    SUSPECTED_HARD,
+    SUSPECTED_HARD_FIRST
+} client_status_e;
+
 static long table_size  = DEFAULT_TABLE_SIZE;
 const char *shmname;
 
@@ -246,6 +254,33 @@ static int is_contenttype_ignored(dosdetector_dir_config *cfg, request_rec *r)
     return ignore;
 }
 
+static client_status_e update_client_status(client_t *client, dosdetector_dir_config *cfg, time_t now)
+{
+    client_status_e status = NORMAL;
+    count_increment(client, cfg->threshold);
+
+    if(client->suspected > 0 && client->suspected + cfg->ban_period > now){
+        status = SUSPECTED;
+        if(client->count > cfg->ban_threshold){
+            status = SUSPECTED_HARD;
+            if(client->hard_suspected == 0) status = SUSPECTED_HARD_FIRST;
+            client->hard_suspected = now;
+        }
+    } else {
+        if(client->suspected > 0){
+            client->suspected = 0;
+            client->hard_suspected = 0;
+            client->count = 0;
+        }
+
+        if(client->count > cfg->threshold){
+            status = SUSPECTED_FIRST;
+            client->suspected = now;
+        }
+    }
+    return status;
+}
+
 static int dosdetector_handler(request_rec *r)
 {
     dosdetector_dir_config *cfg = (dosdetector_dir_config *) ap_get_module_config(r->per_dir_config, &dosdetector_module);
@@ -271,40 +306,46 @@ static int dosdetector_handler(request_rec *r)
         inet_aton(address, &addr);
     }
 
+    time_t now = time(NULL);
+
+    /* enter the critical section */
     if (lock) apr_global_mutex_lock(lock);
+
     client_t *client = get_client(client_list, addr, cfg->period);
-    if (lock) apr_global_mutex_unlock(lock);
-
+    #ifdef _DEBUG
     int last_count = client->count;
-    count_increment(client, cfg->threshold);
-    DEBUGLOG("%s, count: %d -> %d, interval: %d", address, last_count, client->count, (int)client->interval);
-    //DEBUGLOG("%s, count: %d -> %d, interval: %d on tid %d, pid %d", address, last_count, client->count, (int)client->interval, gettid(), getpid());
+    #endif
 
-    time_t now = time((time_t *)0);
-    if(client->suspected > 0 && client->suspected + cfg->ban_period > now){
+    client_status_e status = update_client_status(client, cfg, now);
+    DEBUGLOG("%s, count: %d -> %d, interval: %d",
+             address, last_count, client->count, (int)client->interval);
+
+    if (lock) apr_global_mutex_unlock(lock);
+    /* leave the critical section */
+
+    switch(status)
+    {
+    case SUSPECTED_FIRST:
+        TRACELOG("'%s' is suspected as DoS attack! (counter: %d)", address, client->count);
         apr_table_setn(r->subprocess_env, "SuspectDoS", "1");
-        DEBUGLOG("'%s' has been still suspected as DoS attack! (suspected %d sec ago)", address, now - client->suspected);
+        break;
 
-        if(client->count > cfg->ban_threshold){
-            if(client->hard_suspected == 0)
-                TRACELOG("'%s' is suspected as Hard DoS attack! (counter: %d)", address, client->count);
-            client->hard_suspected = now;
-            apr_table_setn(r->subprocess_env, "SuspectHardDoS", "1");
-        }
-    } else {
-        if(client->suspected > 0){
-            client->suspected = 0;
-            client->hard_suspected = 0;
-            client->count = 0;
-        }
+    case SUSPECTED_HARD_FIRST:
+        TRACELOG("'%s' is suspected as Hard DoS attack! (counter: %d)", address, client->count);
+        apr_table_setn(r->subprocess_env, "SuspectHardDoS", "1");
+        apr_table_setn(r->subprocess_env, "SuspectDoS", "1");
+        break;
 
-        if(client->count > cfg->threshold){
-            client->suspected = now;
-            apr_table_setn(r->subprocess_env, "SuspectDoS", "1");
-            TRACELOG("'%s' is suspected as DoS attack! (counter: %d)", address, client->count);
-        }
+    case SUSPECTED_HARD:
+        apr_table_setn(r->subprocess_env, "SuspectHardDoS", "1");
+    case SUSPECTED:
+        apr_table_setn(r->subprocess_env, "SuspectDoS", "1");
+        DEBUGLOG("'%s' has been still suspected as DoS attack! (suspected %d sec ago)", address, (int)(now - client->suspected));
+        break;
+
+    case NORMAL:
+        break;
     }
-
     return DECLINED;
 }
 
