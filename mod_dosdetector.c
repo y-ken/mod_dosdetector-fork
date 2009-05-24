@@ -136,22 +136,16 @@ static void create_shm(server_rec *s,apr_pool_t *p)
     size =  sizeof(client_list_t) + table_size * sizeof(client_t);
 
     ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL, 
-                 "Create or Joining shmem. name: %s, size: %d", shmname, size);
+                 "Creating shmem. name: %s, size: %d", shmname, size);
     if(lock) apr_global_mutex_lock(lock);
-    apr_status_t rc = apr_shm_attach(&shm, shmname, p);
+
+    apr_shm_remove(shmname, p);
+    apr_status_t rc = apr_shm_create(&shm, size, shmname, p);
     if (APR_SUCCESS != rc) {
-        DEBUGLOG("Creating shared memory");
-        apr_shm_remove(shmname, p);
-        rc = apr_shm_create(&shm, size, shmname, p);
-        if (APR_SUCCESS != rc) {
-            ap_log_error(APLOG_MARK, APLOG_ERR, 0,0, "failed to create shared memory %s\n", shmname);
-        } else {
-            client_list = apr_shm_baseaddr_get(shm);
-            memset(client_list, 0, size);
-        }
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0,0, "failed to create shared memory %s\n", shmname);
     } else {
-        DEBUGLOG("Joining shared memory");
         client_list = apr_shm_baseaddr_get(shm);
+        memset(client_list, 0, size);
     }
 
     apr_shm_remove(shmname, p); // Just to set destroy flag.
