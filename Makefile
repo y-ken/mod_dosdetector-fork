@@ -4,7 +4,7 @@
 ##
 
 #   the used tools
-APXS=/usr/sbin/apxs
+APXS=apxs
 APACHECTL=apachectl
 
 #   additional user defines, includes and libraries
