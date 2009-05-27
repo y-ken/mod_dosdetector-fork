@@ -129,15 +129,11 @@ static void log_and_cleanup(char *msg, apr_status_t status, server_rec *s)
 
 static void create_shm(server_rec *s,apr_pool_t *p)
 {    
-    tmpnam(lock_name);
-    apr_global_mutex_create(&lock, lock_name, APR_THREAD_MUTEX_DEFAULT, p);
-
     size_t size;
     size =  sizeof(client_list_t) + table_size * sizeof(client_t);
 
     ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL, 
                  "Creating shmem. name: %s, size: %d", shmname, size);
-    if(lock) apr_global_mutex_lock(lock);
 
     apr_shm_remove(shmname, p);
     apr_status_t rc = apr_shm_create(&shm, size, shmname, p);
@@ -159,8 +155,6 @@ static void create_shm(server_rec *s,apr_pool_t *p)
         c++;
     }
     c->next = NULL;
-    if (lock) apr_global_mutex_unlock(lock);
-
 }
 
 static client_t *get_client(client_list_t *client_list, struct in_addr clientip, int period)
@@ -452,6 +446,10 @@ static int initialize_module(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp,
     }
 
     create_shm(s, p);
+
+    tmpnam(lock_name);
+    apr_global_mutex_create(&lock, lock_name, APR_THREAD_MUTEX_DEFAULT, p);
+
     apr_pool_cleanup_register(p, NULL, cleanup_shm, apr_pool_cleanup_null);
 
     return OK;
