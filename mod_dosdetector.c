@@ -127,7 +127,7 @@ static void log_and_cleanup(char *msg, apr_status_t status, server_rec *s)
     cleanup_shm(NULL);
 }
 
-static void create_shm(server_rec *s,apr_pool_t *p)
+static apr_status_t create_shm(server_rec *s,apr_pool_t *p)
 {    
     size_t size;
     size =  sizeof(client_list_t) + table_size * sizeof(client_t);
@@ -138,11 +138,11 @@ static void create_shm(server_rec *s,apr_pool_t *p)
     apr_shm_remove(shmname, p);
     apr_status_t rc = apr_shm_create(&shm, size, shmname, p);
     if (APR_SUCCESS != rc) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0,0, "failed to create shared memory %s\n", shmname);
-    } else {
-        client_list = apr_shm_baseaddr_get(shm);
-        memset(client_list, 0, size);
+        ap_log_error(APLOG_MARK, APLOG_ERR, rc, s, "failed to create shared memory %s", shmname);
+        return rc;
     }
+    client_list = apr_shm_baseaddr_get(shm);
+    memset(client_list, 0, size);
 
     apr_shm_remove(shmname, p); // Just to set destroy flag.
 
@@ -155,6 +155,7 @@ static void create_shm(server_rec *s,apr_pool_t *p)
         c++;
     }
     c->next = NULL;
+    return APR_SUCCESS;
 }
 
 static client_t *get_client(client_list_t *client_list, struct in_addr clientip, int period)
@@ -445,7 +446,10 @@ static int initialize_module(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp,
         return OK;
     }
 
-    create_shm(s, p);
+    apr_status_t rv = create_shm(s, p);
+    if(rv != APR_SUCCESS) {
+        return HTTP_INTERNAL_SERVER_ERROR;
+    }
 
     tmpnam(lock_name);
     apr_global_mutex_create(&lock, lock_name, APR_THREAD_MUTEX_DEFAULT, p);
