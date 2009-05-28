@@ -149,7 +149,8 @@ static apr_status_t create_shm(server_rec *s,apr_pool_t *p)
     client_list = apr_shm_baseaddr_get(shm);
     memset(client_list, 0, size);
 
-    apr_shm_remove(shmname, p); // Just to set destroy flag.
+    /* prevent other processes from accessing the segment */
+    apr_shm_remove(shmname, p);
 
     client_list->head = client_list->base;
     client_t *c = client_list->base;
