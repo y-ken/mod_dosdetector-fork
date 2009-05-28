@@ -135,8 +135,13 @@ static apr_status_t create_shm(server_rec *s,apr_pool_t *p)
     ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL, 
                  "Creating shmem. name: %s, size: %d", shmname, size);
 
-    apr_shm_remove(shmname, p);
-    apr_status_t rc = apr_shm_create(&shm, size, shmname, p);
+    apr_status_t rc = apr_shm_remove(shmname, p);
+    if (APR_SUCCESS == rc) {
+        ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s,
+                     "removed the existing shared memory segment named '%s'", shmname);
+    }
+    
+    rc = apr_shm_create(&shm, size, shmname, p);
     if (APR_SUCCESS != rc) {
         ap_log_error(APLOG_MARK, APLOG_ERR, rc, s, "failed to create shared memory %s", shmname);
         return rc;
