@@ -27,12 +27,14 @@ mod_dosdetectorはDoS攻撃を検出するためのApacheモジュールです�
 tar xvzf mod_dosdetector-fork-X.Y.Z.tar.gz
 cd mod_dosdetector-fork-X.Y.Z
 sudo make install
-sudo make restart
 
-apxsコマンドおよびapachectlコマンドのパスが環境変数PATHに含まれていない場合、
+apxsコマンドのパスが環境変数PATHに含まれていない場合、
 makeに対する引数として設定してください。
 
 sudo make PATH=/usr/sbin:$PATH install
+
+下記の設定例に従って設定を行った後、
+Apacheを再起動してください。
 
 ---------------------------------------
  設定例
