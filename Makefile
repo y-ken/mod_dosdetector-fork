@@ -26,7 +26,7 @@ install: all
 
 #   cleanup
 clean:
-	-rm -f mod_dosdetector.o mod_dosdetector.so mod_dosdetector.lo mod_dosdetector.slo mod_dosdetector.la
+	-rm -rf .libs mod_dosdetector.o mod_dosdetector.so mod_dosdetector.lo mod_dosdetector.slo mod_dosdetector.la
 
 #   simple test
 test: reload
