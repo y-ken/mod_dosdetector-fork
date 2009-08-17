@@ -95,6 +95,6 @@ RewriteRule .*  - [R=503,L]
  変更履歴
 ---------------------------------------
 
-2009-08-16  Takayuki Miwa  <i@tkyk.name>
+2009-08-17  Takayuki Miwa  <i@tkyk.name> - 1.0.0
 
 	* Initial release.
