@@ -47,7 +47,9 @@ Apacheを再起動してください。
 DoSDetection     on
 
 # 画像、CSS、JavaScriptファイルをDoSチェックの対象としない
-SetEnvIf Request_URI "\.(gif|jpe?g|ico|js|css|png)$" NoCheckDoS
+<IfModule setenvif_module>
+    SetEnvIf Request_URI "\.(gif|jpe?g|ico|js|css|png)$" NoCheckDoS
+</IfModule>
 
 # 1. 同一IPアドレスから5秒間に10回以上のアクセスがあった場合
 #  「DoS攻撃の疑いあり」と見なし、その後30秒間のアクセスに対しては
@@ -66,6 +68,13 @@ DoSTableSize     100
 
 # モジュールが使用する共有メモリの名称
 DoSShmemName	 mod_dosdetector
+
+# setenvifモジュールが使用不可能な場合はcontent-typeを用いて
+# DoSチェックの対象としないアクセスを指定することもできる
+# （ただしパフォーマンスは劣る）
+<IfModule !setenvif_module>
+    DoSIgnoreContentType  image|javascript|css
+</IfModule>
 
 
 ##### DoS攻撃と見なされたアクセスに対して、どのように対応するかを設定
