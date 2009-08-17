@@ -81,7 +81,7 @@ DoSShmemName	 mod_dosdetector
 ##### 必要に応じて<VirtualHost>セクションや.htaccessに記述してください
 
 # 「DoS攻撃の疑いあり」と見なされたアクセスを通常のログとは分けて記録する
-LogFormat "%{SuspectHardDoS}e %h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-Agent}i"" dosdetector
+LogFormat "%{SuspectHardDoS}e %h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" dosdetector
 CustomLog logs/dos_suspect_log dosdetector env=SuspectDoS
 
 # 「激しいDoS攻撃の疑い」と見なされたクライアントに対し、503エラーレスポンスを返す
