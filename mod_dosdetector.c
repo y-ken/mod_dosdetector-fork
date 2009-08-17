@@ -40,7 +40,7 @@
 #include "apr_thread_mutex.h"
 
 #define MODULE_NAME "mod_dosdetector"
-#define MODULE_VERSION "0.2"
+#define MODULE_VERSION "1.0.0"
 
 #ifdef _DEBUG
 #define DEBUGLOG(...) ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_NOTICE, 0, NULL, MODULE_NAME ": " __VA_ARGS__)
