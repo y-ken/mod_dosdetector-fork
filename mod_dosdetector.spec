@@ -1,47 +1,50 @@
-%define name	%{mod_name}
+%define name	%{mod_name}-fork
 %define version %{mod_version}
 %define release 1
 
 # Module-Specific definitions
-%define mod_version	0.2
-%define mod_name	mod_dosdetector
-#%define mod_conf	13_%{mod_name}.conf
+%define mod_version	1.0.0
+%define mod_basename	dosdetector
+%define mod_name	mod_%{mod_basename}
+%define mod_conf	%{mod_basename}.conf
 %define mod_so		%{mod_name}.so
-%define sourcename	%{mod_name}-%{mod_version}
-%define apxs		/usr/sbin/apxs
+%define sourcename	%{name}-%{mod_version}
+%define apxs_path	/usr/sbin
 
 Summary:	DoS attack detector for the Apache web server
 Name:		%{name}
 Version:	%{version}
 Release:	%{release}
-License:	Apache License
-Group:		System/Servers
-URL:		http://misccs.dyndns.org/mod_dosdetector/
-Source0:	http://misccs.dyndns.org/mod_dosdetector/%{sourcename}.tar.gz
+License:	MIT License
+Group:		System Environment/Daemons
+URL:		http://github.com/tkyk/mod_dosdetector-fork/tree/master
+Source0:	%{sourcename}.tar.gz
 
 BuildRoot:	%{_tmppath}/%{name}-buildroot
-BuildPrereq:	httpd-devel apr-devel
+BuildRequires:	sed
+BuildPrereq:	httpd-devel >= 2.2, apr-devel
+Provides:	mod_dosdetector
+Requires:	httpd >= 2.2
 
 %description
-mod_auth_pgsql can be used to limit access to documents served by
-a web server by checking fields in a table in a PostgresQL
-database.
+mod_dosdetector is a DoS detector module for Apache HTTP Server.
 
 %prep
-%setup -q -n %{sourcename}
+%setup -q
 
 %build
-
-%{apxs} -c mod_dosdetector.c -n mod_dosdetector.so
+%{__make} PATH=%{apxs_path}:$PATH
+%{__sed} 's/^\#LoadModule/LoadModule/' %{mod_basename}-sample.conf > %{mod_conf}
 
 %install
-[ "%{buildroot}" != "/" ] && rm -rf %{buildroot}
-mkdir -p %{buildroot}%{_libdir}/httpd/modules/
-cp .libs/mod_dosdetector.so %{buildroot}%{_libdir}/httpd/modules/
-# %{apxs} -c -i -a -n 'dosdetector' mod_dosdetector.c
+[ "%{buildroot}" != "/" ] && %{__rm} -rf %{buildroot}
+%{__install} -d %{buildroot}%{_libdir}/httpd/modules/
+%{__install} -d %{buildroot}%{_sysconfdir}/httpd/conf.d/
+%{__install} -m0755 .libs/%{mod_so} %{buildroot}%{_libdir}/httpd/modules/
+%{__install} -m0644 %{mod_conf} %{buildroot}%{_sysconfdir}/httpd/conf.d/
 
 %clean
-[ "%{buildroot}" != "/" ] && rm -rf %{buildroot}
+[ "%{buildroot}" != "/" ] && %{__rm} -rf %{buildroot}
 
 %post
 
@@ -49,11 +52,10 @@ cp .libs/mod_dosdetector.so %{buildroot}%{_libdir}/httpd/modules/
 
 %files
 %defattr(-,root,root)
-%{_libdir}/httpd/modules/
-#%config(noreplace) %{ap_confd}/%{mod_conf}
-#%doc README INSTALL *.html
+%{_libdir}/httpd/modules/%{mod_so}
+%config(noreplace) %{_sysconfdir}/httpd/conf.d/%{mod_conf}
 
 %changelog
-* Fri Jan 19 2007  <stanaka@inco.hatena.com> - 0.1-1
-- Initial release.
+* Mon Aug 17 2009 Takayuki Miwa <i@tkyk.name> - 1.0.0-1
+- Initial package.
 
