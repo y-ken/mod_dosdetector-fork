@@ -1,6 +1,7 @@
 %define name	%{mod_name}-fork
 %define version %{mod_version}
 %define release 1
+%define github_user tkyk
 
 # Module-Specific definitions
 %define mod_version	1.0.0
@@ -17,8 +18,8 @@ Version:	%{version}
 Release:	%{release}
 License:	MIT License
 Group:		System Environment/Daemons
-URL:		http://github.com/tkyk/mod_dosdetector-fork/tree/master
-Source0:	%{sourcename}.tar.gz
+URL:		http://github.com/%{github_user}/mod_dosdetector-fork/tree/master
+Source0:	http://cloud.github.com/downloads/%{github_user}/mod_dosdetector-fork/%{sourcename}.tar.gz
 
 BuildRoot:	%{_tmppath}/%{name}-buildroot
 BuildRequires:	sed
