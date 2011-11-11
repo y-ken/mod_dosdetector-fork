@@ -102,6 +102,7 @@ static char shm_name[L_tmpnam];
 static apr_global_mutex_t *lock = NULL;
 static apr_shm_t *shm = NULL;
 
+/* code for apache 2.0 */
 
 static apr_status_t cleanup_shm(void *not_used)
 {
