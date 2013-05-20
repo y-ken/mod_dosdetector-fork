@@ -15,7 +15,7 @@
 Summary:	DoS attack detector for the Apache web server
 Name:		%{name}
 Version:	%{version}
-Release:	%{release}
+Release:	%{release}%{?dist}
 License:	MIT License
 Group:		System Environment/Daemons
 URL:		http://github.com/%{github_user}/mod_dosdetector-fork/tree/master
