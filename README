@@ -46,9 +46,16 @@ Apacheを再起動してください。
 # mod_dosdetectorを有効にする
 DoSDetection     on
 
-# 画像、CSS、JavaScriptファイルをDoSチェックの対象としない
+# DoSチェクの対象としないルールの記述
 <IfModule setenvif_module>
+    # 画像、CSS、JavaScriptファイルをDoSチェックの対象としない
     SetEnvIf Request_URI "\.(gif|jpe?g|ico|js|css|png)$" NoCheckDoS
+    # 特定のVirtualDomain(Host:の値を見る)をDoSチェックの対象としない
+    SetEnvIf Host "img.example.com" NoCheckDoS
+    # 特定のUserAgentをDoSチェックの対象としない
+    SetEnvIf User-Agent "Googlebot" NoCheckDoS
+    # 特定の接続元IPからの接続をDoSチェックの対象としない
+    SetEnvIf Remote_Addr 192.168. NoCheckDoS
 </IfModule>
 
 # 1. 同一IPアドレスから5秒間に20回以上のアクセスがあった場合
